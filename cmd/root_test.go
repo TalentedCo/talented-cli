@@ -47,3 +47,38 @@ func TestAuthSaveFileProfile(t *testing.T) {
 		t.Fatalf("expected file fallback token in config: %s", data)
 	}
 }
+
+func TestAuthListAndStatusRedactFileBackedTokens(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TALENTED_CONFIG", filepath.Join(dir, "config.json"))
+
+	token := "tal_testtoken_secret_1234567890"
+	if _, err := runCommand(t, "auth", "save", "--storage", "file", "--profile", "test", "--token", token, "--api-url", "http://localhost:3000"); err != nil {
+		t.Fatal(err)
+	}
+
+	listOut, err := runCommand(t, "auth", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains([]byte(listOut), []byte(token)) {
+		t.Fatalf("auth list leaked full token: %s", listOut)
+	}
+	if !bytes.Contains([]byte(listOut), []byte(`"has_token": true`)) {
+		t.Fatalf("auth list should report token presence: %s", listOut)
+	}
+	if !bytes.Contains([]byte(listOut), []byte(`"token_prefix": "tal_testtoke"`)) {
+		t.Fatalf("auth list should expose only token prefix: %s", listOut)
+	}
+
+	statusOut, err := runCommand(t, "auth", "status", "--profile", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains([]byte(statusOut), []byte(token)) {
+		t.Fatalf("auth status leaked full token: %s", statusOut)
+	}
+	if !bytes.Contains([]byte(statusOut), []byte(`"has_token": true`)) {
+		t.Fatalf("auth status should report token presence: %s", statusOut)
+	}
+}

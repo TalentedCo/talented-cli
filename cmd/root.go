@@ -86,6 +86,54 @@ func writeRawJSON(out io.Writer, data []byte) error {
 	return err
 }
 
+type safeAuthProfile struct {
+	Name        string `json:"name"`
+	APIURL      string `json:"api_url"`
+	Storage     string `json:"storage,omitempty"`
+	HasToken    bool   `json:"has_token"`
+	TokenPrefix string `json:"token_prefix,omitempty"`
+}
+
+type safeAuthConfig struct {
+	DefaultProfile string                     `json:"default_profile"`
+	Profiles       map[string]safeAuthProfile `json:"profiles"`
+}
+
+func tokenPrefix(token string) string {
+	if token == "" {
+		return ""
+	}
+	return token[:min(len(token), 12)]
+}
+
+func safeProfileForOutput(name string, profile config.Profile) safeAuthProfile {
+	hasToken := profile.Token != ""
+	if profile.Storage == "keychain" {
+		if _, err := credstore.Get(name); err == nil {
+			hasToken = true
+		}
+	}
+
+	return safeAuthProfile{
+		Name:        firstNonEmpty(profile.Name, name),
+		APIURL:      firstNonEmpty(profile.APIURL, config.DefaultAPIURL),
+		Storage:     profile.Storage,
+		HasToken:    hasToken,
+		TokenPrefix: tokenPrefix(profile.Token),
+	}
+}
+
+func safeConfigForOutput(cfg config.File) safeAuthConfig {
+	profiles := make(map[string]safeAuthProfile, len(cfg.Profiles))
+	for name, profile := range cfg.Profiles {
+		profiles[name] = safeProfileForOutput(name, profile)
+	}
+	return safeAuthConfig{
+		DefaultProfile: cfg.DefaultProfile,
+		Profiles:       profiles,
+	}
+}
+
 func mapHTTPError(err error) error {
 	var httpErr *client.HTTPError
 	if !errors.As(err, &httpErr) {
@@ -195,7 +243,7 @@ func authSaveCmd(state *rootState) *cobra.Command {
 				"profile":      profileName,
 				"api_url":      apiURL,
 				"storage":      actualStorage,
-				"token_prefix": token[:min(len(token), 12)],
+				"token_prefix": tokenPrefix(token),
 			})
 		},
 	}
@@ -243,7 +291,7 @@ func authListCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return exitcode.Wrap(exitcode.Generic, err)
 			}
-			return writeJSON(state.out, cfg)
+			return writeJSON(state.out, safeConfigForOutput(cfg))
 		},
 	}
 }
