@@ -67,6 +67,7 @@ talented agent-context
 
 talented companies list
 talented companies get --company <id>
+talented companies invite --company <id> --email teammate@example.com --role ADMIN
 
 talented jobs list --company <id> [--status ACTIVE] [--search engineer]
 talented jobs get --job <id>
@@ -95,11 +96,16 @@ talented skill get talented
 ```bash
 talented whoami
 talented companies list
+talented companies invite --company 74 --email tanya@woofiesrh.com --role ADMIN
 talented jobs list --company 1
 talented applications list --job 10 --limit 10
 talented candidates notes add --candidate 20 --content "Follow up this week"
 talented applications move --application 30 --stage 40
 ```
+
+`companies invite` only invites or adds a user to an existing company visible to
+your token. It never creates companies as a fallback and requires `agent:write`
+plus company owner/admin permissions. `--role` must be `ADMIN` or `MEMBER`.
 
 ## Exit Codes
 
