@@ -372,13 +372,14 @@ func agentContextCmd(state *rootState) *cobra.Command {
 				"api_url": c.BaseURL,
 				"context": me,
 				"safe_scope": []string{
-					"companies", "jobs", "applications", "single application stage moves", "candidate notes", "candidate status/favorite",
+					"companies", "existing-company member invites", "jobs", "applications", "single application stage moves", "candidate notes", "candidate status/favorite",
 				},
 				"excluded_scope": []string{
 					"super-admin", "billing", "impersonation", "raw database", "bulk destructive automation",
 				},
 				"commands": []string{
 					"talented companies list",
+					"talented companies invite --company <id> --email <email> --role ADMIN",
 					"talented jobs list --company <id>",
 					"talented applications list --job <id>",
 					"talented applications move --application <id> --stage <id>",
@@ -390,7 +391,7 @@ func agentContextCmd(state *rootState) *cobra.Command {
 }
 
 func companiesCmd(state *rootState) *cobra.Command {
-	cmd := &cobra.Command{Use: "companies", Short: "Company reads"}
+	cmd := &cobra.Command{Use: "companies", Short: "Company reads and existing-company invites"}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List accessible companies",
@@ -410,8 +411,61 @@ func companiesCmd(state *rootState) *cobra.Command {
 		},
 	}
 	get.Flags().Int("company", 0, "company ID")
-	cmd.AddCommand(get)
+	cmd.AddCommand(get, companiesInviteCmd(state))
 	return cmd
+}
+
+func companiesInviteCmd(state *rootState) *cobra.Command {
+	var company int
+	var email string
+	var role string
+	cmd := &cobra.Command{
+		Use:   "invite",
+		Short: "Invite or add an ADMIN or MEMBER to an existing company; never creates companies",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if company <= 0 || strings.TrimSpace(email) == "" || strings.TrimSpace(role) == "" {
+				return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--company, --email, and --role are required"))
+			}
+			normalizedEmail, err := normalizeEmail(email)
+			if err != nil {
+				return exitcode.Wrap(exitcode.Validation, err)
+			}
+			normalizedRole, err := normalizeCompanyInviteRole(role)
+			if err != nil {
+				return exitcode.Wrap(exitcode.Validation, err)
+			}
+			return apiJSON(
+				state,
+				"POST",
+				fmt.Sprintf("/api/agent/v1/companies/%d/members/invite", company),
+				map[string]any{"email": normalizedEmail, "role": normalizedRole},
+			)
+		},
+	}
+	cmd.Flags().IntVar(&company, "company", 0, "existing company ID")
+	cmd.Flags().StringVar(&email, "email", "", "invitee email")
+	cmd.Flags().StringVar(&role, "role", "", "ADMIN or MEMBER")
+	return cmd
+}
+
+func normalizeEmail(raw string) (string, error) {
+	email := strings.ToLower(strings.TrimSpace(raw))
+	if email == "" || strings.ContainsAny(email, " \t\r\n") {
+		return "", fmt.Errorf("--email must be a valid email address")
+	}
+	at := strings.LastIndex(email, "@")
+	if at <= 0 || at == len(email)-1 || !strings.Contains(email[at+1:], ".") {
+		return "", fmt.Errorf("--email must be a valid email address")
+	}
+	return email, nil
+}
+
+func normalizeCompanyInviteRole(raw string) (string, error) {
+	role := strings.ToUpper(strings.TrimSpace(raw))
+	if role != "ADMIN" && role != "MEMBER" {
+		return "", fmt.Errorf("--role must be ADMIN or MEMBER")
+	}
+	return role, nil
 }
 
 func jobsCmd(state *rootState) *cobra.Command {

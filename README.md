@@ -67,6 +67,7 @@ talented agent-context
 
 talented companies list
 talented companies get --company <id>
+talented companies invite --company <id> --email teammate@example.com --role ADMIN
 
 talented jobs list --company <id> [--status ACTIVE] [--search engineer]
 talented jobs get --job <id>
@@ -95,6 +96,7 @@ talented skill get talented
 ```bash
 talented whoami
 talented companies list
+talented companies invite --company 74 --email tanya@woofiesrh.com --role ADMIN
 talented jobs list --company 1
 talented applications list --job 10 --limit 10
 talented candidates notes add --candidate 20 --content "Follow up this week"
@@ -122,3 +124,16 @@ mise exec go@1.26.2 -- go mod tidy
 mise exec go@1.26.2 -- go test ./...
 mise exec go@1.26.2 -- go build ./...
 ```
+
+## Existing Company Invites
+
+`talented companies invite` only invites or adds a user to an already-existing
+company visible to the authenticated token user. It never creates companies and
+requires an `agent:write` token plus current company owner/admin permissions.
+
+```bash
+talented companies invite --company 74 --email tanya@woofiesrh.com --role ADMIN
+talented companies invite --company 75 --email teammate@example.com --role MEMBER
+```
+
+Roles are limited to `ADMIN` and `MEMBER`; `OWNER` is intentionally rejected.
