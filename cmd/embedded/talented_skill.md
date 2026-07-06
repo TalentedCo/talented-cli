@@ -20,7 +20,9 @@ talented agent-context
 
 ## Safe Scope
 
-You may list accessible companies, list and inspect jobs, list and inspect candidates/applications, create a single candidate/application, move a single application to a valid stage, reject or unreject one application, update candidate status/favorite, and add candidate notes.
+You may list accessible companies, invite or add an ADMIN/MEMBER to an already-existing company when the token user is a company owner/admin, list and inspect jobs, list and inspect candidates/applications, create a single candidate/application, move a single application to a valid stage, reject or unreject one application, update candidate status/favorite, and add candidate notes.
+
+`talented companies invite` never creates companies. If the company is not visible or the token user is not an owner/admin, stop instead of trying to create a replacement company.
 
 Do not attempt super-admin, impersonation, billing, raw database, migration, feature-flag, eval/debug, or bulk destructive work through this CLI.
 
@@ -28,6 +30,7 @@ Do not attempt super-admin, impersonation, billing, raw database, migration, fea
 
 ```bash
 talented companies list
+talented companies invite --company <company_id> --email <email> --role ADMIN
 talented jobs list --company <company_id>
 talented applications list --job <job_id> --limit 10
 talented applications move --application <application_id> --stage <stage_id>
