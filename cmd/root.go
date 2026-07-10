@@ -380,6 +380,7 @@ func agentContextCmd(state *rootState) *cobra.Command {
 				},
 				"commands": []string{
 					"talented companies list",
+					"talented companies update --company <id> --description <text>",
 					"talented companies invite --company <id> --email teammate@example.com --role ADMIN",
 					"talented jobs list --company <id>",
 					"talented applications list --job <id>",
@@ -392,7 +393,7 @@ func agentContextCmd(state *rootState) *cobra.Command {
 }
 
 func companiesCmd(state *rootState) *cobra.Command {
-	cmd := &cobra.Command{Use: "companies", Short: "Company reads and member invites"}
+	cmd := &cobra.Command{Use: "companies", Short: "Company reads and safe admin writes"}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List accessible companies",
@@ -413,7 +414,52 @@ func companiesCmd(state *rootState) *cobra.Command {
 	}
 	get.Flags().Int("company", 0, "company ID")
 	cmd.AddCommand(get)
+	cmd.AddCommand(companyUpdateCmd(state))
 	cmd.AddCommand(companyInviteCmd(state))
+	return cmd
+}
+
+func companyUpdateCmd(state *rootState) *cobra.Command {
+	var company int
+	var description, website, logoURL, location, industry, size, timezone string
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update safe profile fields on an existing company",
+		Long: "Update safe profile fields on an existing company. This command never creates companies; " +
+			"the API requires agent:write plus company OWNER/ADMIN permissions. Omitted fields are preserved; " +
+			"empty nullable string flags clear those fields.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if company <= 0 {
+				return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--company is required"))
+			}
+			body := changedStringMap(cmd,
+				"description", description,
+				"website", website,
+				"logoUrl", logoURL,
+				"location", location,
+				"industry", industry,
+				"size", size,
+				"timezone", timezone,
+			)
+			if len(body) == 0 {
+				return exitcode.Wrap(exitcode.Usage, fmt.Errorf("at least one profile field flag is required"))
+			}
+			return apiJSON(
+				state,
+				"PATCH",
+				fmt.Sprintf("/api/agent/v1/companies/%d", company),
+				body,
+			)
+		},
+	}
+	cmd.Flags().IntVar(&company, "company", 0, "existing company ID")
+	cmd.Flags().StringVar(&description, "description", "", "company description; empty string clears")
+	cmd.Flags().StringVar(&website, "website", "", "company website; bare domains are normalized by the API")
+	cmd.Flags().StringVar(&logoURL, "logo-url", "", "absolute company logo URL; empty string clears")
+	cmd.Flags().StringVar(&location, "location", "", "company location; empty string clears")
+	cmd.Flags().StringVar(&industry, "industry", "", "company industry; empty string clears")
+	cmd.Flags().StringVar(&size, "size", "", "company size/headcount band; empty string clears")
+	cmd.Flags().StringVar(&timezone, "timezone", "", "valid IANA timezone, e.g. America/New_York")
 	return cmd
 }
 
@@ -892,6 +938,7 @@ func changedStringMap(cmd *cobra.Command, values ...string) map[string]any {
 	result := map[string]any{}
 	flagByJSONKey := map[string]string{
 		"employmentType": "employment-type",
+		"logoUrl":        "logo-url",
 		"remoteOption":   "remote-option",
 		"salaryRange":    "salary-range",
 	}

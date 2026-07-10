@@ -123,6 +123,125 @@ func TestCompaniesInvitePostsExistingCompanyInviteRequest(t *testing.T) {
 	}
 }
 
+func TestCompaniesUpdatePatchesOnlyChangedProfileFields(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TALENTED_CONFIG", filepath.Join(dir, "config.json"))
+	t.Setenv("TALENTED_API_TOKEN", "tal_testtoken")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Fatalf("expected PATCH, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/agent/v1/companies/73" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer tal_testtoken" {
+			t.Fatalf("missing bearer token: %s", r.Header.Get("Authorization"))
+		}
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		expected := map[string]string{
+			"description": "Woofies profile",
+			"logoUrl":     "https://www.woofies.com/images/brand/logo-dark.png",
+			"location":    "Hubert, NC",
+			"industry":    "Pets",
+			"timezone":    "America/New_York",
+		}
+		if len(body) != len(expected) {
+			t.Fatalf("unexpected body keys: %#v", body)
+		}
+		for key, value := range expected {
+			if body[key] != value {
+				t.Fatalf("unexpected %s: %#v", key, body)
+			}
+		}
+		if _, ok := body["website"]; ok {
+			t.Fatalf("website should be omitted when flag was omitted: %#v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"company":{"id":73,"timezone":"America/New_York"}}`))
+	}))
+	defer server.Close()
+	t.Setenv("TALENTED_API_URL", server.URL)
+
+	out, err := runCommand(
+		t,
+		"companies",
+		"update",
+		"--company",
+		"73",
+		"--description",
+		"Woofies profile",
+		"--logo-url",
+		"https://www.woofies.com/images/brand/logo-dark.png",
+		"--location",
+		"Hubert, NC",
+		"--industry",
+		"Pets",
+		"--timezone",
+		"America/New_York",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains([]byte(out), []byte(`"id": 73`)) {
+		t.Fatalf("expected company JSON, got %s", out)
+	}
+}
+
+func TestCompaniesUpdatePreservesEmptyChangedStringsForServerClearing(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TALENTED_CONFIG", filepath.Join(dir, "config.json"))
+	t.Setenv("TALENTED_API_TOKEN", "tal_testtoken")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["description"] != "" || body["logoUrl"] != "" {
+			t.Fatalf("expected empty changed strings for clearing, got %#v", body)
+		}
+		if len(body) != 2 {
+			t.Fatalf("unexpected body: %#v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"company":{"id":73,"description":null,"logoUrl":null}}`))
+	}))
+	defer server.Close()
+	t.Setenv("TALENTED_API_URL", server.URL)
+
+	_, err := runCommand(
+		t,
+		"companies",
+		"update",
+		"--company",
+		"73",
+		"--description",
+		"",
+		"--logo-url",
+		"",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCompaniesUpdateValidatesRequiredAndChangedInputs(t *testing.T) {
+	tests := [][]string{
+		{"companies", "update", "--description", "Profile"},
+		{"companies", "update", "--company", "73"},
+	}
+
+	for _, args := range tests {
+		if _, err := runCommand(t, args...); err == nil {
+			t.Fatalf("expected validation error for args %#v", args)
+		}
+	}
+}
+
 func TestCompaniesInviteValidatesRequiredAndSafeInputs(t *testing.T) {
 	tests := [][]string{
 		{"companies", "invite", "--email", "tanya@woofiesrh.com", "--role", "ADMIN"},

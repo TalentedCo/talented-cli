@@ -67,6 +67,7 @@ talented agent-context
 
 talented companies list
 talented companies get --company <id>
+talented companies update --company <id> [--description ...] [--website ...] [--logo-url ...] [--location ...] [--industry ...] [--size ...] [--timezone ...]
 talented companies invite --company <id> --email teammate@example.com --role ADMIN
 
 talented jobs list --company <id> [--status ACTIVE] [--search engineer]
@@ -96,6 +97,7 @@ talented skill get talented
 ```bash
 talented whoami
 talented companies list
+talented companies update --company 73 --description "Woofie’s® of Greater Jacksonville provides individualized pet care services, including pet sitting, dog walking, mobile pet grooming, and more for pets and families in the Greater Jacksonville, NC area." --logo-url https://www.woofies.com/images/brand/logo-dark.png --location "Hubert, NC" --industry Pets --timezone America/New_York
 talented companies invite --company 74 --email tanya@woofiesrh.com --role ADMIN
 talented jobs list --company 1
 talented applications list --job 10 --limit 10
@@ -106,6 +108,14 @@ talented applications move --application 30 --stage 40
 `companies invite` only invites or adds a user to an existing company visible to
 your token. It never creates companies as a fallback and requires `agent:write`
 plus company owner/admin permissions. `--role` must be `ADMIN` or `MEMBER`.
+
+`companies update` only updates safe profile fields on an existing company:
+`description`, `website`, `logoUrl`, `location`, `industry`, `size`, and
+`timezone`. It never creates companies or exposes raw/admin company mutation.
+Only flags you pass are sent, so omitted fields preserve existing values. Empty
+nullable string flags such as `--description ""` or `--logo-url ""` are sent to
+the API so the server can clear those fields. The command requires
+`agent:write` plus company owner/admin permissions.
 
 ## Exit Codes
 
