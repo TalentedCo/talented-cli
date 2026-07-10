@@ -67,6 +67,7 @@ talented agent-context
 
 talented companies list
 talented companies get --company <id>
+talented companies update --company <id> [--description "..."] [--website example.com] [--logo-url https://example.com/logo.png] [--location "San Francisco, CA"] [--industry Technology] [--size 11-50] [--timezone America/New_York]
 talented companies invite --company <id> --email teammate@example.com --role ADMIN
 
 talented jobs list --company <id> [--status ACTIVE] [--search engineer]
@@ -96,12 +97,20 @@ talented skill get talented
 ```bash
 talented whoami
 talented companies list
+talented companies update --company 73 --location "Hubert, NC" --industry Pets --timezone America/New_York
 talented companies invite --company 74 --email tanya@woofiesrh.com --role ADMIN
 talented jobs list --company 1
 talented applications list --job 10 --limit 10
 talented candidates notes add --candidate 20 --content "Follow up this week"
 talented applications move --application 30 --stage 40
 ```
+
+`companies update` updates only safe profile fields on an existing company:
+`description`, `website`, `logoUrl`, `location`, `industry`, `size`, and
+`timezone`. Omitted flags preserve existing values. Passing an empty string
+clears nullable fields; `--timezone` must be a non-empty valid IANA timezone.
+It never creates companies and requires `agent:write` plus company owner/admin
+permissions.
 
 `companies invite` only invites or adds a user to an existing company visible to
 your token. It never creates companies as a fallback and requires `agent:write`
